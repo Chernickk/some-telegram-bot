@@ -1,40 +1,51 @@
-from multiprocessing import Process
+import os
+from datetime import datetime
 
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
+from aiogram.utils.deep_linking import get_start_link, decode_payload
 
-from config import RECEIVER_TOKEN, SENDER_TOKEN, CHAT_ID
-from logger import bot_message_logger
+from config import BOT_TOKEN, CHAT_ID, DATABASE_URL
+# from logger import bot_message_logger
+from db import DBConnect
+from service import get_output_file
 
-bot_receiver = Bot(token=RECEIVER_TOKEN)
-bot_sender = Bot(token=SENDER_TOKEN)
-
-dp_receiver = Dispatcher(bot_receiver)
-dp_sender = Dispatcher(bot_sender)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(bot)
 
 
-@dp_receiver.message_handler(commands=['start'])
+@dp.message_handler(commands=['start'])
 async def process_start_command(message: types.Message):
-    await message.reply("Привет!\nЯ бот который получает сообщения!")
+    # Extract payload from start command
+    await message.reply('видео загружается...')
+    payload = decode_payload(message.get_args())
+    # await message.reply(payload)
+    uuid, datetime_string = payload.split()
+    date, from_time, to_time = datetime_string.split(',')
+
+    result = {
+        'uuid': uuid,
+        'from_datetime': datetime.strptime(f'{date} {from_time}', '%d.%m.%Y %H.%M.%S'),
+        'to_datetime': datetime.strptime(f'{date} {to_time}', '%d.%m.%Y %H.%M.%S'),
+    }
+
+    with DBConnect(DATABASE_URL) as conn:
+        records = conn.get_records(result['uuid'])
+
+    clips = get_output_file(result['from_datetime'], result['to_datetime'], records)
+
+    for clip in clips:
+        media = types.InputFile(open(clip, 'rb'))
+        await message.reply_document(media)
+        os.remove(clip)
 
 
-@dp_sender.message_handler(commands=['start'])
+@dp.message_handler(commands=['getlink'])
 async def process_start_command(message: types.Message):
-    await message.reply("Привет!\nЯ бот который пересылает сообщения!!")
-
-
-@dp_receiver.message_handler()
-async def echo_message(message: types.Message):
-    bot_message_logger.info(message.text, {'user_id': message.from_user.id})
-    [await bot_sender.send_message(CHAT_ID, letter) for letter in message.text.replace(' ', '')]
+    result = await get_start_link(message.get_args(), encode=True)
+    await message.reply(result)
 
 
 if __name__ == '__main__':
-    for dp in (dp_receiver, dp_sender):
-        proc = Process(target=executor.start_polling, args=(dp, ))
-        proc.start()
-
-
-
-
+    executor.start_polling(dp)
