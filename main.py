@@ -1,15 +1,15 @@
 import os
-from datetime import datetime
+from time import time
 
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 from aiogram.utils.deep_linking import get_start_link, decode_payload
 
-from config import BOT_TOKEN, CHAT_ID, DATABASE_URL
+from config import BOT_TOKEN, DATABASE_URL
 # from logger import bot_message_logger
+from movie_maker.moviemaker import MovieMaker
 from db import DBConnect
-from service import get_output_file
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
@@ -17,28 +17,30 @@ dp = Dispatcher(bot)
 
 @dp.message_handler(commands=['start'])
 async def process_start_command(message: types.Message):
-    # Extract payload from start command
-    await message.reply('видео загружается...')
-    payload = decode_payload(message.get_args())
-    # await message.reply(payload)
-    uuid, datetime_string = payload.split()
-    date, from_time, to_time = datetime_string.split(',')
+    await message.reply('загрузка...')
+    try:
+        payload = decode_payload(message.get_args())
 
-    result = {
-        'uuid': uuid,
-        'from_datetime': datetime.strptime(f'{date} {from_time}', '%d.%m.%Y %H.%M.%S'),
-        'to_datetime': datetime.strptime(f'{date} {to_time}', '%d.%m.%Y %H.%M.%S'),
-    }
+        with DBConnect(DATABASE_URL) as conn:
+            movie_record = conn.get_movie(payload)
 
-    with DBConnect(DATABASE_URL) as conn:
-        records = conn.get_records(result['uuid'])
+        camera = eval(movie_record.camera)
 
-    clips = get_output_file(result['from_datetime'], result['to_datetime'], records)
+        start_time = time()
 
-    for clip in clips:
-        media = types.InputFile(open(clip, 'rb'))
-        await message.reply_document(media)
-        os.remove(clip)
+        mm = MovieMaker(camera, 'media')
+        mm.get_video(movie_record.dt_start, movie_record.dt_finish, 'test')
+
+        await message.reply(f'Время загрузки видео {time() - start_time} сек')
+
+        with open('mediatest.mp4', 'rb') as video:
+            await message.reply_video(video)
+        os.remove('mediatest.mp4')
+
+    except FileNotFoundError as e:
+        await message.reply('Ошибка!\nФайл не найден или превышает допустимые 180 сек.')
+    except AttributeError as e:
+        await message.reply('Ошибка!\nДанная запись отсутствует в базе данных.')
 
 
 @dp.message_handler(commands=['getlink'])

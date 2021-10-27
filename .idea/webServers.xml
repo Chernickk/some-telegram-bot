@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="2b87b361-0a7d-4288-9f75-90c445144ded" name="videoreg">
+        <fileTransfer accessType="SFTP" host="192.168.202.94" port="22" sshConfigId="66660267-5001-418c-8275-0a30cd5ec382" sshConfig="user@192.168.202.94:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
