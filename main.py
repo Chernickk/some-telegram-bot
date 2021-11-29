@@ -33,14 +33,14 @@ async def process_start_command(message: types.Message):
 
         await message.reply(f'Время загрузки видео {time() - start_time} сек')
 
-        with open('mediatest.mp4', 'rb') as video:
+        with open(os.path.join('media', 'test.mp4'), 'rb') as video:
             await message.reply_video(video)
-        os.remove('mediatest.mp4')
+        os.remove(os.path.join('media', 'test.mp4'))
 
-    except FileNotFoundError as e:
-        await message.reply('Ошибка!\nФайл не найден или превышает допустимые 180 сек.')
-    except AttributeError as e:
-        await message.reply('Ошибка!\nДанная запись отсутствует в базе данных.')
+    except FileNotFoundError as error:
+        await message.reply(f'Ошибка!\nФайл не найден или превышает допустимые 180 сек.\n{error}')
+    except AttributeError as error:
+        await message.reply(f'Ошибка!\nДанная запись отсутствует в базе данных.\n{error}')
 
 
 @dp.message_handler(commands=['getlink'])

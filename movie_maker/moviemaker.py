@@ -44,15 +44,16 @@ class MovieMaker:
 
         # имя файла видео без расширения. Например video1.mp4 -> video1
         self.logger.info(f"{self.link}")
-        file_name_w_ext = re.match(r"(.*)\..*$", self.link).group(1)
+        filename_wo_format = self.link.split('.')[0]
 
         self.logger.info(f"Качаем видео с сервера...")
-        result = self.get_video_from_server(timeframe, self.camera,
-                                            self.filepath + file_name_w_ext + '.h264')
+        result = self.get_video_from_server(timeframe,
+                                            self.camera,
+                                            os.path.join(self.filepath, f'{filename_wo_format}.h264'))
 
         if result > 0:
             self.logger.info(f"Конвертируем видео...")
-            self.convert(self.filepath + file_name_w_ext + '.h264', self.filepath + self.link)
+            self.convert(os.path.join(self.filepath, f'{filename_wo_format}.h264'), os.path.join(self.filepath, self.link))
             self.logger.info(f"Видео готово...")
             return 1
         self.logger.info(f"В архиве нет видео с такими параметрами...")
@@ -61,8 +62,20 @@ class MovieMaker:
     def convert(self, input_file, output_file):
         self.logger.debug(f"Выполняем конвертацию исходного файла {input_file} в {output_file}")
         try:
-            command = f'ffmpeg -i "{input_file}" -preset ultrafast "{output_file}"'
-            subprocess.call([command], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+            if os.name == 'nt':
+                command = ['C:\\Program Files\\ffmpeg\\ffmpeg.exe',
+                           '-i', input_file,
+                           '-preset', 'ultrafast',
+                           '-y', output_file]
+            else:
+                command = ['ffmpeg',
+                           '-i', input_file,
+                           '-preset', 'ultrafast',
+                           '-y', output_file]
+
+            subprocess.call(command,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.STDOUT,
                             timeout=300)
             self.logger.info(f"Конвертация прошла успешно")
             os.remove(input_file)
@@ -135,7 +148,7 @@ class MovieMaker:
 
     def timeframe_creation(self, start_time, finish_time):
         if isinstance(start_time, datetime) and isinstance(finish_time, datetime):
-            duration = int((start_time - finish_time).total_seconds())
+            duration = int((finish_time - start_time).total_seconds())
             self.logger.info(f"Итоговая длина видео {duration} секунд")
 
             if duration <= maxduration:
